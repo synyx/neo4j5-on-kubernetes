@@ -1,0 +1,86 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: neo4j-namespace
+  name: neo4j-service
+spec:
+  type: NodePort
+  ports:
+    - port: 7474
+      name: neo4j-port
+      nodePort: 30074
+    - port: 7687
+      name: bolt-port
+      nodePort: 30087
+  selector:
+    app.kubernetes.io/name: neo4j-database
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: neo4j-namespace
+  name: neo4j-database
+  labels: &LABELS
+    app.kubernetes.io/name: neo4j-database
+    app.kubernetes.io/component: database
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: neo4j-database
+  serviceName: neo4j-service
+  replicas: 1
+  template:
+    metadata:
+      labels: *LABELS
+    spec:
+      initContainers:
+        # use init container to copy APOC to plugins directory
+        - name: neo4j-apoc-init
+          image: neo4j:4.4.22
+          command: [ '/bin/sh', '-c', 'cp -v /var/lib/neo4j/labs/apoc-4.4.0.19-core.jar /var/lib/neo4j/plugins/apoc-4.4.0.19-core.jar' ]
+          volumeMounts:
+            - name: neo4j-plugins
+              mountPath: /var/lib/neo4j/plugins
+      containers:
+        - name: neo4j
+          image: neo4j:4.4.22
+          ports:
+            - containerPort: 7474
+              name: neo4j-port
+            - containerPort: 7687
+              name: bolt-port
+          env:
+            - name: NEO4J_server_bolt_advertised_address
+              value: 'localhost:30087'
+            - name: NEO4J_dbms_security_procedures_allowlist
+              value: 'apoc.export.graphml.*,apoc.import.graphml'
+            - name: NEO4J_apoc_export_file_enabled
+              value: 'true'
+            - name: NEO4J_apoc_import_file_enabled
+              value: 'true'
+          volumeMounts:
+            - name: neo4j-data
+              mountPath: /data
+            - name: neo4j-backup
+              mountPath: /var/lib/neo4j/backup
+            - name: neo4j-plugins
+              mountPath: /var/lib/neo4j/plugins
+          resources:
+            limits:
+              cpu: 1000m   # 2 cpu
+              memory: 2Gi
+            requests:
+              cpu: 50m   # 1/20 cpu
+              memory: 1Gi
+      volumes:
+        - name: neo4j-plugins
+          persistentVolumeClaim:
+            claimName: neo4j4-neo4j-plugins
+        - name: neo4j-data
+          persistentVolumeClaim:
+            claimName: neo4j4-neo4j-data
+        - name: neo4j-backup
+          persistentVolumeClaim:
+            claimName: neo4j4-neo4j-backup
+
