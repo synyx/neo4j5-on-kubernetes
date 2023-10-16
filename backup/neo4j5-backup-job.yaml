@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: neo4j-backup
+  namespace: neo4j-backup
+  labels:
+    app.kubernetes.io/name: neo4j-backup
+    app.kubernetes.io/instance: neo4j-backup
+spec:
+  # toggle for suspending backup of the database
+  # suspend: true
+  # run backup - daily at 2AM
+  schedule: '0 2 * * *'
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 0
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: neo4j-backup
+              image: bitnami/bitnami-shell:11-debian-11
+              imagePullPolicy: Always
+              # use Neo4j http API to send a backup query that writes a backup to filesystem
+              # curl -d '{"statements": [ {  "statement" : "WITH \"backup.graphml\" AS filename CALL apoc.export.graphml.all(filename, {useTypes:TRUE, storeNodeIds:FALSE}) YIELD file RETURN file;" } ]}' -H "Authorization: Basic bmVvNGo6MTIzNDU2Nzg=" -H "Content-Type: application/json" -X POST http://192.168.49.2:30047/db/neo4j/tx/commit
+              command: [ '/bin/bash' ,'-c', ' curl -d ''{"statements": [ {  "statement" : "WITH \"backup.graphml\" AS filename CALL apoc.export.graphml.all(filename, {useTypes:TRUE, storeNodeIds:FALSE}) YIELD file RETURN file;" } ]}'' -H "Authorization: Basic bmVvNGo6MTIzNDU2Nzg=" -H "Content-Type: application/json" -X POST "http://192.168.49.2:30047/db/neo4j/tx/commit" ' ]
+              resources:
+                limits:
+                  cpu: 500m   # 1/2 cpu
+                  memory: 500Mi
+                requests:
+                  cpu: 50m   # 1/20 cpu
+                  memory: 500Mi

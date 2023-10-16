@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: neo4j-backup
+  name: neo4j-service
+spec:
+  type: NodePort
+  ports:
+    - port: 7474
+      name: neo4j-backup
+      nodePort: 30047
+    - port: 7687
+      name: bolt-backup
+      nodePort: 30078
+  selector:
+    app.kubernetes.io/name: neo4j-database
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: neo4j-backup
+  name: neo4j-database
+  labels: &LABELS
+    app.kubernetes.io/name: neo4j-database
+    app.kubernetes.io/component: database
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: neo4j-database
+  serviceName: neo4j-service
+  replicas: 1
+  template:
+    metadata:
+      labels: *LABELS
+    spec:
+      initContainers:
+        # use init container to copy APOC to plugins directory
+        - name: neo4j-apoc-init
+          image: neo4j:5.12.0
+          command: [ '/bin/sh', '-c', 'cp -v /var/lib/neo4j/labs/apoc-5.12.0-core.jar /var/lib/neo4j/plugins/apoc-5.12.0-core.jar' ]
+          volumeMounts:
+            - name: neo4j-plugins
+              mountPath: /var/lib/neo4j/plugins
+      containers:
+        - name: neo4j
+          image: neo4j:5.12.0
+          ports:
+            - containerPort: 7474
+              name: neo4j-backup
+            - containerPort: 7687
+              name: bolt-backup
+          envFrom:
+            - secretRef:
+                name: neo4j-secret
+          env:
+            - name: NEO4J_dbms_security_procedures_allowlist
+              value: 'apoc.export.graphml.*,apoc.import.graphml'
+            - name: NEO4J_apoc_export_file_enabled
+              value: 'true'
+            - name: NEO4J_apoc_import_file_enabled
+              value: 'true'
+            - name: NEO4J_server_config_strict__validation_enabled
+              value: 'false'
+          volumeMounts:
+            - name: neo4j-data
+              mountPath: /data
+            - name: neo4j-backup
+              mountPath: /var/lib/neo4j/backup
+            - name: neo4j-plugins
+              mountPath: /var/lib/neo4j/plugins
+          resources:
+            limits:
+              cpu: 1000m   # 2 cpu
+              memory: 2Gi
+            requests:
+              cpu: 50m   # 1/20 cpu
+              memory: 1Gi
+      volumes:
+        - name: neo4j-plugins
+          persistentVolumeClaim:
+            claimName: neo4j5-backup-neo4j-plugins
+        - name: neo4j-data
+          persistentVolumeClaim:
+            claimName: neo4j5-backup-neo4j-data
+        - name: neo4j-backup
+          persistentVolumeClaim:
+            claimName: neo4j5-backup-neo4j-backup
+
