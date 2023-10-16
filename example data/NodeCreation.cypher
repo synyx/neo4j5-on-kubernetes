@@ -1,0 +1,8 @@
+CREATE p1 = (:Order {id:'1'})-[:HAS_INVOICE]->(:Invoice {price: 100, id: '1', discount:5, invoicing_amount:95})
+CREATE p2 = (:Order {id:'2'})-[:HAS_INVOICE]->(:Invoice {price: 200, id: '2', discount:5, invoicing_amount:195})
+CREATE p3 = (:Order {id:'3'})-[:HAS_INVOICE]->(:Invoice {price: 100, id: '3', discount:5, invoicing_amount:95})
+CREATE p4 = (:Order {id:'4'})-[:HAS_INVOICE]->(:Invoice {price: 200, id: '4', discount:5, invoicing_amount:195})
+CREATE p5 = (:Order {id:'5'})-[:HAS_INVOICE]->(:Invoice {price: 100, id: '5', discount:5, invoicing_amount:95})
+CREATE p6 = (:Order {id:'6'})-[:HAS_INVOICE]->(:Invoice {price: 200, id: '6', discount:5, invoicing_amount:195})
+CREATE p7 = (:Order {id:'7'})-[:HAS_INVOICE]->(:Invoice {price: 1000, id: '7', discount:100, invoicing_amount:900})
+CREATE p8 = (:Order {id:'8'})-[:HAS_INVOICE]->(:Invoice {price: 800, id: '8', discount:10, invoicing_amount:790})
